@@ -142,4 +142,4 @@ printf "%*s %s\\n"             "$WID_JOBS" 'now' "$(date +'%FT%T')"
 printf "%*s %s\\n"             "$WID_JOBS" 'end' "$END_DATE"
 printf "\\n"
 
-[[ "$PRC2ERR" -eq 1 ]] && exit "$PRC_JOBS"
+[[ "$PRC2ERR" -eq 0 ]] || exit "$PRC_JOBS"
