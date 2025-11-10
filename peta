@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+# This script comes with ABSOLUTELY NO WARRANTY, use at own risk
+# Copyright (C) 2024 Osiris Alejandro Gomez <osiux@osiux.com>
+# Copyright (C) 2024 Osiris Alejandro Gomez <osiris@gcoop.coop>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+[[ "$BASH_DEBUG" -eq 1 ]] && set -x
+
+function stderror()
+{
+  echo >&2 "$1"
+}
+
+function die()
+{
+  stderror "$1"
+  exit 1
+}
+
+function get_total_files()
+{
+  find . -maxdepth 1 -type f -iname "${SRC_FILES}" -printf '%P\n' \
+    | grep -vE "^$DST_PREFIX"                                     \
+    | wc -l
+}
+
+function get_dest_files()
+{
+  find . -maxdepth 1 -type f -iname "${DST_PREFIX}${SRC_FILES}" -printf '%P\n' \
+    | wc -l
+}
+
+function get_total_size()
+{
+  find . -maxdepth 1 -type f -iname "${SRC_FILES}" -printf '%s %P\n' \
+    | grep -vE "^$DST_PREFIX"                                        \
+    | awk '{S+=$1} END {printf "%0d",S/1024/1024/1024}'
+}
+
+function get_dest_size()
+{
+  find . -maxdepth 1 -type f -iname "${DST_PREFIX}${SRC_FILES}" -printf '%s\n' \
+    | awk '{S+=$1} END {printf "%0d",S/1024/1024/1024}'
+}
+
+function get_diff_perc()
+{
+  echo "$DST_SIZE" "$TOT_SIZE" | awk '{printf "%2d",($1/$2)*100}'
+}
+
+function get_diff_size()
+{
+  echo "$((TOT_SIZE - DST_SIZE))"
+}
+
+function get_duration()
+{
+  if [[ -e "$JOBLOG" ]]
+  then
+    AVG="$(pavg "$JOBLOG")"
+    DURATION=0
+    [[ "$AVG" -gt 0 ]] && DURATION="$((AVG / JOBS))"
+  fi
+
+  echo "${DURATION%%.*}"
+}
+
+[[ -n "$PRC2ERR"  ]] || PRC2ERR=0
+[[ -n "$TOT_JOBS" ]] || TOT_JOBS="$1"
+[[ -s "$TOT_JOBS" ]] && TOT_JOBS="$(wc -l < "$1")"
+[[ -z "$TOT_JOBS" ]] && die "EMPTY TOTAL JOBS"
+[[ -n "$JOBLOG"   ]] || JOBLOG='parallel.log'
+[[ -z "$2"        ]] || JOBLOG="$2"
+[[ -s "$JOBLOG"   ]] || die "EMPTY OR NOT FOUND FILE $JOBLOG"
+[[ -n "$JOBS"     ]] || JOBS="$(pjobs "$JOBLOG")"
+[[ -n "$DURATION" ]] || DURATION="$(get_duration)"
+[[ -n "$TOT_PROC" ]] || TOT_PROC="$(pproc "$JOBLOG")"
+
+ONE_DAY="$((3600 * 24))"               # SECONDS * HOURS
+ONE_WEEK="$((ONE_DAY * 7))"            # SECONDS * DAYS
+
+if [[ "$TOT_PROC" -gt 0 ]]
+then
+  PND_JOBS="$((TOT_JOBS - TOT_PROC))"  # QUANTITY
+else
+  PND_JOBS="$TOT_JOBS"                 # QUANTITY
+fi
+
+if [[ "$PND_JOBS" -gt 0 ]]
+then
+  ETA_SEC="$((PND_JOBS * DURATION))"   # SECONDS
+else
+  ETA_SEC=0
+fi
+
+ETA_DAY=0
+
+if [[ "$ETA_SEC" -gt "$ONE_DAY" ]]
+then
+  ETA_DAY="$((ETA_SEC / ONE_DAY))"
+  ETA_SEC="$((ETA_SEC-(ETA_DAY*ONE_DAY)))"
+fi
+
+ETA_HMS="$(sec2hms "$ETA_SEC")"
+ETA_HH="${ETA_HMS:0:2}"
+ETA_MM="${ETA_HMS:3:2}"
+ETA_SS="${ETA_HMS:5:2}"
+NOW_SEC="$(date -d 'now' +%s)"
+END_SEC="$((NOW_SEC + ETA_SEC))"
+END_DATE="$(date -d "@$END_SEC" +'%FT%T')"
+WID_JOBS="${#TOT_JOBS}"
+[[ "$WID_JOBS" -lt 3 ]] && WID_JOBS=3
+
+if [[ "$TOT_PROC" -gt 0 ]]
+then
+  PRC_JOBS="$(echo "$TOT_PROC" "$TOT_JOBS" | awk "{printf \"%02d\",(\$1/\$2)*100}")"
+else
+  PRC_JOBS=0
+fi
+
+printf "%*s progress %s\\n"    "$WID_JOBS" "$PRC_JOBS" '%'
+printf "%*s day(s) %s ETA\\n"  "$WID_JOBS" "$ETA_DAY" "$ETA_HMS"
+printf "%*s total jobs\\n"     "$WID_JOBS" "$TOT_JOBS"
+printf "%*s processed jobs\\n" "$WID_JOBS" "$TOT_PROC"
+printf "%*s pending jobs\\n"   "$WID_JOBS" "$PND_JOBS"
+printf "%*s parallel jobs\\n"  "$WID_JOBS" "$JOBS"
+printf "%*s avg/jobs secs\\n"  "$WID_JOBS" "$DURATION"
+printf "%*s %s\\n"             "$WID_JOBS" 'now' "$(date +'%FT%T')"
+printf "%*s %s\\n"             "$WID_JOBS" 'end' "$END_DATE"
+printf "\\n"
+
+[[ "$PRC2ERR" -eq 1 ]] && exit "$PRC_JOBS"
