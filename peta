@@ -70,9 +70,7 @@ function get_duration()
 {
   if [[ -e "$JOBLOG" ]]
   then
-    AVG="$(pavg "$JOBLOG")"
-    DURATION=0
-    [[ "$AVG" -gt 0 ]] && DURATION="$((AVG / JOBS))"
+    DURATION="$(pavg "$JOBLOG")"
   fi
 
   echo "${DURATION%%.*}"
