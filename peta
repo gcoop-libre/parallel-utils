@@ -80,6 +80,7 @@ function get_duration()
 [[ -n "$TOT_JOBS" ]] || TOT_JOBS="$1"
 [[ -s "$TOT_JOBS" ]] && TOT_JOBS="$(wc -l < "$1")"
 [[ -z "$TOT_JOBS" ]] && die "EMPTY TOTAL JOBS"
+[[    "$TOT_JOBS" =~ ^[0-9]+$ ]] || die "INVALID TOTAL JOBS NUMBER $TOT_JOBS"
 [[ -n "$JOBLOG"   ]] || JOBLOG='parallel.log'
 [[ -z "$2"        ]] || JOBLOG="$2"
 [[ -s "$JOBLOG"   ]] || die "EMPTY OR NOT FOUND FILE $JOBLOG"
