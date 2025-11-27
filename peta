@@ -131,6 +131,8 @@ else
   PRC_JOBS=0
 fi
 
+[[ "$PRC_JOBS" -eq 100 ]] && END_DATE="$(pend "$JOBLOG")"
+
 printf "%*s progress %s\\n"    "$WID_JOBS" "$PRC_JOBS" '%'
 printf "%*s day(s) %s ETA\\n"  "$WID_JOBS" "$ETA_DAY" "$ETA_HMS"
 printf "%*s total jobs\\n"     "$WID_JOBS" "$TOT_JOBS"
